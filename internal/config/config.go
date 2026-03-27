@@ -14,8 +14,8 @@ const (
 	ConfigFileName   = "armory.yaml"
 )
 
-// Role defines a named set of skills and how to handle missing ones.
-type Role struct {
+// Team defines a named set of skills and how to handle missing ones.
+type Team struct {
 	Description   string   `yaml:"description"`
 	Skills        []string `yaml:"skills"`
 	MissingAction string   `yaml:"missing_action"`
@@ -25,7 +25,7 @@ type Role struct {
 type Config struct {
 	Version    int             `yaml:"version"`
 	SkillPaths []string        `yaml:"skill_paths"`
-	Roles      map[string]Role `yaml:"roles,omitempty"`
+	Teams      map[string]Team `yaml:"teams,omitempty"`
 }
 
 // DefaultSkillPaths returns the default directories where skills are found.
@@ -59,7 +59,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Version:    1,
 		SkillPaths: DefaultSkillPaths(),
-		Roles:      map[string]Role{},
+		Teams:      map[string]Team{},
 	}
 }
 
@@ -68,11 +68,11 @@ func DefaultConfig() *Config {
 // Precedence:
 //  1. projectDir/armory.yaml
 //  2. ~/.armory/armory.yaml
-//  3. Built-in defaults (version 1, default skill paths, empty roles)
+//  3. Built-in defaults (version 1, default skill paths, empty teams)
 //
-// When both project and global configs exist, project-level roles fully
-// replace global roles. If the project config has no roles section the
-// global roles are used instead.
+// When both project and global configs exist, project-level teams fully
+// replace global teams. If the project config has no teams section the
+// global teams are used instead.
 func LoadConfig(projectDir string) (*Config, error) {
 	globalPath, err := GlobalConfigPath()
 	if err != nil {
@@ -109,10 +109,10 @@ func LoadConfig(projectDir string) (*Config, error) {
 		return projectCfg, nil
 	}
 
-	// Both exist. Project roles fully replace global roles when present.
+	// Both exist. Project teams fully replace global teams when present.
 	merged := projectCfg
-	if len(merged.Roles) == 0 {
-		merged.Roles = globalCfg.Roles
+	if len(merged.Teams) == 0 {
+		merged.Teams = globalCfg.Teams
 	}
 	expandSkillPaths(merged)
 	return merged, nil
@@ -135,13 +135,23 @@ func SaveConfig(path string, cfg *Config) error {
 	return nil
 }
 
-// GetRole returns the role with the given name, or an error if not found.
-func (c *Config) GetRole(name string) (*Role, error) {
-	role, ok := c.Roles[name]
+// GetTeam returns the team with the given name, or an error if not found.
+func (c *Config) GetTeam(name string) (*Team, error) {
+	team, ok := c.Teams[name]
 	if !ok {
-		return nil, fmt.Errorf("role %q not found", name)
+		return nil, fmt.Errorf("team %q not found", name)
 	}
-	return &role, nil
+	return &team, nil
+}
+
+// ConfigExists checks whether the global config file (~/.armory/armory.yaml) exists.
+func ConfigExists() bool {
+	p, err := GlobalConfigPath()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(p)
+	return err == nil
 }
 
 // loadFile reads and parses a single YAML config file. Returns nil config

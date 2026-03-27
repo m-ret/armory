@@ -16,7 +16,7 @@ import (
 // boardRow holds pre-computed display data for one equipped directory.
 type boardRow struct {
 	dir       string
-	role      string
+	team      string
 	skills    string // e.g. "5/6"
 	status    state.SymlinkStatus
 	since     string
@@ -109,7 +109,7 @@ func (m *boardModel) loadData() {
 
 		rows = append(rows, boardRow{
 			dir:       abbreviateDir(entry.Dir, home),
-			role:      entry.Role,
+			team:      entry.Team,
 			skills:    skillsFrac,
 			status:    status,
 			since:     relativeTime(entry.EquippedAt),
@@ -166,7 +166,7 @@ func (m boardModel) View() string {
 	if len(m.rows) == 0 {
 		b.WriteString("\n")
 		b.WriteString(boardHeaderStyle.Render("  ARMORY BOARD") + "\n\n")
-		b.WriteString(boardDim.Render("  No equipped directories. Run 'armory equip <role>' to get started.") + "\n")
+		b.WriteString(boardDim.Render("  No equipped directories. Run 'armory equip <team>' to get started.") + "\n")
 		b.WriteString("\n" + boardFooter.Render("  [q] quit") + "\n")
 		return b.String()
 	}
@@ -178,7 +178,7 @@ func (m boardModel) View() string {
 
 	// Compute column widths.
 	dirW := len("DIRECTORY")
-	roleW := len("ROLE")
+	teamW := len("TEAM")
 	skillsW := len("SKILLS")
 	statusW := len("STATUS")
 	sinceW := len("SINCE")
@@ -187,8 +187,8 @@ func (m boardModel) View() string {
 		if len(r.dir) > dirW {
 			dirW = len(r.dir)
 		}
-		if len(r.role) > roleW {
-			roleW = len(r.role)
+		if len(r.team) > teamW {
+			teamW = len(r.team)
 		}
 		if len(r.skills) > skillsW {
 			skillsW = len(r.skills)
@@ -204,25 +204,25 @@ func (m boardModel) View() string {
 
 	pad := 2
 	hdrFmt := fmt.Sprintf("  %%-%ds  %%-%ds  %%-%ds  %%-%ds  %%s",
-		dirW+pad, roleW+pad, skillsW+pad, statusW+pad)
+		dirW+pad, teamW+pad, skillsW+pad, statusW+pad)
 
-	headerLine := fmt.Sprintf(hdrFmt, "DIRECTORY", "ROLE", "SKILLS", "STATUS", "SINCE")
+	headerLine := fmt.Sprintf(hdrFmt, "DIRECTORY", "TEAM", "SKILLS", "STATUS", "SINCE")
 	b.WriteString(boardTableHdr.Render(headerLine) + "\n")
-	sep := strings.Repeat("─", dirW+roleW+skillsW+statusW+sinceW+5*(pad+2)+2)
+	sep := strings.Repeat("─", dirW+teamW+skillsW+statusW+sinceW+5*(pad+2)+2)
 	b.WriteString(boardDim.Render("  "+sep) + "\n")
 
 	// Table rows.
 	for i, r := range m.rows {
 		dirCell := boardNormal.Render(r.dir)
-		roleCell := boardNormal.Render(r.role)
+		teamCell := boardNormal.Render(r.team)
 		skillsCell := boardNormal.Render(r.skills)
 		statusCell := renderStatus(r.status)
 		sinceCell := boardDim.Render(r.since)
 
 		rowFmt := fmt.Sprintf("  %%-%ds  %%-%ds  %%-%ds  %%-%ds  %%s",
-			dirW+pad, roleW+pad, skillsW+pad, statusW+pad)
+			dirW+pad, teamW+pad, skillsW+pad, statusW+pad)
 
-		line := fmt.Sprintf(rowFmt, dirCell, roleCell, skillsCell, statusCell, sinceCell)
+		line := fmt.Sprintf(rowFmt, dirCell, teamCell, skillsCell, statusCell, sinceCell)
 
 		if i == m.cursor {
 			line = boardSelectedBg.Render(line)
@@ -234,7 +234,7 @@ func (m boardModel) View() string {
 	if m.cursor >= 0 && m.cursor < len(m.rows) {
 		r := m.rows[m.cursor]
 		b.WriteString("\n")
-		b.WriteString(detailLabel.Render("  Role: ") + boardNormal.Render(r.role) + "\n")
+		b.WriteString(detailLabel.Render("  Team: ") + boardNormal.Render(r.team) + "\n")
 		b.WriteString(detailLabel.Render("  Dir:  ") + boardDim.Render(r.entry.Dir) + "\n")
 		b.WriteString(detailLabel.Render("  Skills: ") + boardNormal.Render(strings.Join(r.entry.Skills, ", ")) + "\n")
 		if len(r.missing) > 0 {

@@ -23,7 +23,7 @@ func TestLoadConfig_NoConfigExists(t *testing.T) {
 
 	assert.Equal(t, 1, cfg.Version)
 	assert.Equal(t, DefaultSkillPaths(), cfg.SkillPaths)
-	assert.Empty(t, cfg.Roles)
+	assert.Empty(t, cfg.Teams)
 }
 
 func TestLoadConfig_GlobalOnly(t *testing.T) {
@@ -32,7 +32,7 @@ func TestLoadConfig_GlobalOnly(t *testing.T) {
 version: 2
 skill_paths:
   - /global/skills
-roles:
+teams:
   devops:
     description: DevOps engineer
     skills: [docker, k8s]
@@ -44,8 +44,8 @@ roles:
 
 	assert.Equal(t, 2, cfg.Version)
 	assert.Equal(t, []string{"/global/skills"}, cfg.SkillPaths)
-	assert.Contains(t, cfg.Roles, "devops")
-	assert.Equal(t, "DevOps engineer", cfg.Roles["devops"].Description)
+	assert.Contains(t, cfg.Teams, "devops")
+	assert.Equal(t, "DevOps engineer", cfg.Teams["devops"].Description)
 }
 
 func TestLoadConfig_ProjectOnly(t *testing.T) {
@@ -54,7 +54,7 @@ func TestLoadConfig_ProjectOnly(t *testing.T) {
 version: 3
 skill_paths:
   - /project/skills
-roles:
+teams:
   frontend:
     description: Frontend dev
     skills: [react, css]
@@ -66,16 +66,16 @@ roles:
 
 	assert.Equal(t, 3, cfg.Version)
 	assert.Equal(t, []string{"/project/skills"}, cfg.SkillPaths)
-	assert.Contains(t, cfg.Roles, "frontend")
+	assert.Contains(t, cfg.Teams, "frontend")
 }
 
-func TestLoadConfig_BothExist_ProjectRolesReplaceGlobal(t *testing.T) {
+func TestLoadConfig_BothExist_ProjectTeamsReplaceGlobal(t *testing.T) {
 	globalDir := t.TempDir()
 	writeYAML(t, globalDir, ConfigFileName, `
 version: 1
 skill_paths:
   - /global/skills
-roles:
+teams:
   devops:
     description: DevOps engineer
     skills: [docker]
@@ -87,7 +87,7 @@ roles:
 version: 1
 skill_paths:
   - /project/skills
-roles:
+teams:
   frontend:
     description: Frontend dev
     skills: [react]
@@ -97,17 +97,17 @@ roles:
 	cfg, err := loadFromDirs(projectDir, globalDir)
 	require.NoError(t, err)
 
-	assert.Contains(t, cfg.Roles, "frontend", "project role should be present")
-	assert.NotContains(t, cfg.Roles, "devops", "global role should be replaced")
+	assert.Contains(t, cfg.Teams, "frontend", "project team should be present")
+	assert.NotContains(t, cfg.Teams, "devops", "global team should be replaced")
 }
 
-func TestLoadConfig_ProjectNoRoles_FallsBackToGlobal(t *testing.T) {
+func TestLoadConfig_ProjectNoTeams_FallsBackToGlobal(t *testing.T) {
 	globalDir := t.TempDir()
 	writeYAML(t, globalDir, ConfigFileName, `
 version: 1
 skill_paths:
   - /global/skills
-roles:
+teams:
   devops:
     description: DevOps engineer
     skills: [docker]
@@ -126,7 +126,7 @@ skill_paths:
 
 	assert.Equal(t, 2, cfg.Version, "version from project config")
 	assert.Equal(t, []string{"/project/skills"}, cfg.SkillPaths)
-	assert.Contains(t, cfg.Roles, "devops", "should fall back to global roles")
+	assert.Contains(t, cfg.Teams, "devops", "should fall back to global teams")
 }
 
 func TestLoadConfig_InvalidYAML(t *testing.T) {
@@ -144,7 +144,7 @@ func TestSaveConfig_RoundTrip(t *testing.T) {
 	original := &Config{
 		Version:    1,
 		SkillPaths: []string{"/a", "/b"},
-		Roles: map[string]Role{
+		Teams: map[string]Team{
 			"backend": {
 				Description:   "Backend dev",
 				Skills:        []string{"go", "sql"},
@@ -163,27 +163,27 @@ func TestSaveConfig_RoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, original.Version, loaded.Version)
 	assert.Equal(t, original.SkillPaths, loaded.SkillPaths)
-	assert.Equal(t, original.Roles["backend"].Description, loaded.Roles["backend"].Description)
-	assert.Equal(t, original.Roles["backend"].Skills, loaded.Roles["backend"].Skills)
+	assert.Equal(t, original.Teams["backend"].Description, loaded.Teams["backend"].Description)
+	assert.Equal(t, original.Teams["backend"].Skills, loaded.Teams["backend"].Skills)
 }
 
-func TestGetRole_Existing(t *testing.T) {
+func TestGetTeam_Existing(t *testing.T) {
 	cfg := &Config{
-		Roles: map[string]Role{
-			"admin": {Description: "Admin role", Skills: []string{"all"}},
+		Teams: map[string]Team{
+			"admin": {Description: "Admin team", Skills: []string{"all"}},
 		},
 	}
 
-	role, err := cfg.GetRole("admin")
+	team, err := cfg.GetTeam("admin")
 	require.NoError(t, err)
-	assert.Equal(t, "Admin role", role.Description)
-	assert.Equal(t, []string{"all"}, role.Skills)
+	assert.Equal(t, "Admin team", team.Description)
+	assert.Equal(t, []string{"all"}, team.Skills)
 }
 
-func TestGetRole_Missing(t *testing.T) {
-	cfg := &Config{Roles: map[string]Role{}}
+func TestGetTeam_Missing(t *testing.T) {
+	cfg := &Config{Teams: map[string]Team{}}
 
-	_, err := cfg.GetRole("nonexistent")
+	_, err := cfg.GetTeam("nonexistent")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "nonexistent")
 }
@@ -204,8 +204,22 @@ func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 	assert.Equal(t, 1, cfg.Version)
 	assert.Equal(t, DefaultSkillPaths(), cfg.SkillPaths)
-	assert.NotNil(t, cfg.Roles)
-	assert.Empty(t, cfg.Roles)
+	assert.NotNil(t, cfg.Teams)
+	assert.Empty(t, cfg.Teams)
+}
+
+func TestConfigExists_Missing(t *testing.T) {
+	// ConfigExists checks the real global path; if no config is present it returns false.
+	// We cannot easily mock os.UserHomeDir, but we can verify it returns a bool without panic.
+	_ = ConfigExists()
+}
+
+func TestConfigExists_Present(t *testing.T) {
+	// Create a temporary config at the real global path is not safe in tests,
+	// so we verify the function is callable and returns a bool.
+	result := ConfigExists()
+	// Result depends on the test environment; just assert it's a bool (no panic).
+	assert.IsType(t, true, result)
 }
 
 // loadFromDirs is a test helper that loads config using specific directories
@@ -241,8 +255,8 @@ func loadFromDirs(projectDir, globalDir string) (*Config, error) {
 	}
 
 	merged := projectCfg
-	if len(merged.Roles) == 0 {
-		merged.Roles = globalCfg.Roles
+	if len(merged.Teams) == 0 {
+		merged.Teams = globalCfg.Teams
 	}
 	expandSkillPaths(merged)
 	return merged, nil

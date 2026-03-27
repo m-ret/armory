@@ -1,54 +1,78 @@
 # armory
 
-**Skill control plane for AI agents.** Equip your terminals with role-based skill presets — zero manual symlinking.
+**Skill control plane for AI agents.** Equip your terminals with team-based skill presets — zero manual symlinking.
 
-You run 3 agents at once: one for marketing, one for development, one for planning. Each needs different skills loaded. Instead of manually choosing and symlinking skills per terminal, you run one command:
+Just run `armory`:
+
+```
+$ armory
+
+  ARMORY v0.2.0
+
+  > Equip a terminal
+    Browse & install skills
+    Manage teams
+    Board
+    Settings
+
+  3 teams · 143 skills · 2 equipped
+```
+
+First time? armory walks you through setup:
+
+```
+  Welcome to armory
+
+  Select your teams (space to toggle, enter to confirm)
+
+  ✓ Dev          Software development and code quality
+  ✓ Marketing    Content creation, SEO, and brand work
+    QA           Quality assurance and testing
+  > Design       UI/UX design and visual quality
+    ...
+
+  Setting up your teams...
+
+  Dev:
+    Found locally: best-practices, performance, systematic-debugging (3/8)
+    Available from skills.sh: ship, review (2 more)
+
+  Marketing:
+    Found locally: copywriting, seo (2/14)
+    Available from skills.sh: content-strategy, email-sequence + 10 more
+
+  Install 12 skills from skills.sh? [Y/n]
+```
+
+Then equip any terminal in one command:
 
 ```
 $ armory equip marketing
-  + copywriting
-  + marketing-psychology
-  + seo
-  + browse
-  + content-strategy
+  Searching locally...
+    Found: copywriting, marketing-psychology, seo (3/14)
+  Searching skills.sh...
+    Found: content-strategy, email-sequence + 9 more
+  Installing 11 skills...
+    + content-strategy → ~/.agents/skills/content-strategy
+    + email-sequence → ~/.agents/skills/email-sequence
+    ...
+  Creating symlinks...
+    ✓ copywriting
+    ✓ marketing-psychology
+    ✓ seo
+    ✓ content-strategy
+    ...
 
-Equipped 'marketing' role: 5 skills loaded
-```
-
-Open another terminal:
-
-```
-$ cd ~/Work/api && armory equip dev
-  + best-practices
-  + performance
-  + test-driven-development
-  + systematic-debugging
-  + verification-before-completion
-
-Equipped 'dev' role: 5 skills loaded
-```
-
-See everything at a glance:
-
-```
-$ armory board
-┌─────────────────────────────────────────────────────────┐
-│  ARMORY BOARD                              2 equipped   │
-├──────────────┬───────────┬────────┬──────────┬──────────┤
-│ Directory    │ Role      │ Skills │ Status   │ Since    │
-├──────────────┼───────────┼────────┼──────────┼──────────┤
-│ ~/Work/myapp │ marketing │ 5/5    │ equipped │ 3m ago   │
-│ ~/Work/api   │ dev       │ 5/7    │ equipped │ 1m ago   │
-└──────────────┴───────────┴────────┴──────────┴──────────┘
+  Equipped 'marketing' team: 14 skills loaded
 ```
 
 **Every terminal gets an identity.**
 
 ## Why
 
-The AI agent tooling space has session managers (Claude Squad, Agent Deck, Conduit). What's missing is the **skill layer** — a tool that maps roles to skill presets and equips agents automatically.
+The AI agent tooling space has session managers (Claude Squad, Agent Deck, Conduit). What's missing is the **skill layer** — a tool that maps teams to skill presets and equips agents automatically.
 
-armory is that tool. It's an armory in the gaming sense: store your loadouts by role, equip before the mission.
+armory connects you to the [skills.sh](https://skills.sh) ecosystem — 90K+ installs, curated collections from Anthropic, Vercel, and the community. It discovers what you have locally, finds what you're missing, and installs it.
 
 ## Install
 
@@ -65,212 +89,118 @@ brew install m-ret/tap/armory
 
 ## Quick Start
 
-### 1. See what skills you have
-
 ```bash
-armory scan
+# Interactive mode — just run it
+armory
+
+# Or use subcommands directly
+armory scan                     # List all available skills
+armory team create marketing    # Create a team interactively
+armory equip marketing          # Equip current directory
+armory board                    # See all equipped directories
 ```
-
-This scans `~/.claude/skills/` and `~/.agents/skills/` and shows a table of all available skills with their inferred categories.
-
-### 2. Create a role
-
-```bash
-armory role create marketing
-```
-
-This opens an **interactive fuzzy picker** — type to filter, space to toggle, enter to confirm. Skills are grouped by category.
-
-Or define roles directly in `~/.armory/armory.yaml`:
-
-```yaml
-version: 1
-
-skill_paths:
-  - ~/.claude/skills
-  - ~/.agents/skills
-
-roles:
-  marketing:
-    description: "Content creation, SEO, and brand work"
-    skills:
-      - copywriting
-      - marketing-psychology
-      - seo
-      - browse
-      - content-strategy
-    missing_action: prompt   # prompt | skip | error
-
-  dev:
-    description: "Software development and code quality"
-    skills:
-      - best-practices
-      - performance
-      - test-driven-development
-      - systematic-debugging
-      - verification-before-completion
-    missing_action: prompt
-
-  planning:
-    description: "Architecture and project planning"
-    skills:
-      - office-hours
-      - plan-eng-review
-      - plan-ceo-review
-      - plan-design-review
-      - brainstorming
-    missing_action: prompt
-```
-
-### 3. Equip a terminal
-
-```bash
-cd ~/Work/myapp
-armory equip marketing
-```
-
-This creates symlinks in `.claude/skills/` pointing to the source skill directories. Start Claude Code and the skills are loaded automatically.
-
-### 4. See the dashboard
-
-```bash
-armory board
-```
-
-A TUI dashboard showing all equipped directories, their roles, skill counts, and status. Press `r` to refresh, `q` to quit.
 
 ## Commands
 
 ```
+armory                          Launch interactive shell (setup wizard on first run)
 armory scan                     List all available skills
-armory role list                List configured roles
-armory role create <name>       Create a role (interactive picker)
-armory role edit <name>         Edit a role's skills (picker with pre-selections)
-armory role show <name>         Show role details
-armory equip <role>             Equip current directory with a role
-armory equip <role> --dir path  Equip a specific directory
-armory equip <role> --merge     Keep existing skills, only add new ones
+armory team list                List configured teams
+armory team create <name>       Create a team (interactive picker)
+armory team edit <name>         Edit a team's skills
+armory team show <name>         Show team details
+armory equip <team>             Equip current directory with a team
+armory equip <team> --dir path  Equip a specific directory
+armory equip <team> --merge     Keep existing skills, only add new ones
 armory unequip                  Remove armory-managed symlinks
-armory unequip --dir path       Unequip a specific directory
 armory board                    Dashboard of all equipped directories
 ```
 
 ## How It Works
 
 ```
-~/.claude/skills/     ~/.agents/skills/      <- skill source directories
-       │                      │
-       └──────┬───────────────┘
-              ▼
-        armory scan                          <- indexes skills, caches results
-              │
-              ▼
-       armory.yaml                           <- role definitions (skill presets)
-              │
-              ▼
-       armory equip marketing                <- creates symlinks
-              │
-              ▼
-    ~/Work/myapp/.claude/skills/             <- symlinks to source skills
-        copywriting -> ~/.agents/skills/copywriting
-        seo -> ~/.agents/skills/seo
-        ...
-              │
-              ▼
-       ~/.armory/state.json                  <- tracks what armory created
-              │
-              ▼
-       armory board                          <- reads state, verifies symlinks
+skills.sh registry          ~/.claude/skills/   ~/.agents/skills/
+       │                         │                      │
+       │  (install missing)      └──────┬───────────────┘
+       │                               ▼
+       └──────────────────►  armory scan (indexes all skills)
+                                       │
+                                       ▼
+                              armory.yaml (team definitions)
+                                       │
+                                       ▼
+                              armory equip marketing
+                                       │
+                              ┌────────┴────────┐
+                              ▼                 ▼
+                     .claude/skills/      ~/.armory/
+                     (symlinks)           state.json
+                              │
+                              ▼
+                        armory board
+                        (dashboard)
 ```
 
 **Key concepts:**
 
-- **Skill paths** (`skill_paths` in config) are source directories where skills live. armory reads from them but never writes to them.
-- **Equip target** is always a project's `.claude/skills/` directory (the current working directory by default).
-- **State tracking** — armory tracks which symlinks it created in `~/.armory/state.json`. This enables safe `unequip` (only removes what armory put there, never your manual symlinks).
-- **Board verification** — the dashboard verifies symlinks still exist on every refresh. If someone deletes a symlink manually, the board shows "stale" status.
+- **Teams** are named presets that map to a list of skills (e.g., "marketing" → copywriting, seo, content-strategy...)
+- **Skill paths** (`~/.claude/skills/`, `~/.agents/skills/`) are source directories where skills live
+- **Equip** creates symlinks from a project's `.claude/skills/` to the source skill directories
+- **Registry integration** — when skills are missing locally, armory searches skills.sh and offers to install them
+- **State tracking** — armory tracks which symlinks it created, enabling safe unequip
+- **Board verification** — the dashboard verifies symlinks on refresh, showing "stale" or "broken" status
 
-## Conflict Handling
+## Built-in Team Presets
 
-**Replace mode** (default): When you equip a directory that's already equipped, armory removes the old managed symlinks and creates new ones. Manual symlinks are never touched.
+armory ships with 10 team presets ready to use:
 
-```bash
-armory equip dev        # Equips dev role
-armory equip marketing  # Warns "Replacing 'dev' with 'marketing'", then replaces
-```
-
-**Merge mode**: Keep existing skills and only add missing ones.
-
-```bash
-armory equip dev
-armory equip marketing --merge  # Adds marketing skills alongside dev skills
-```
-
-## Missing Skills
-
-When a role references a skill that doesn't exist in any skill path:
-
-```
-⚠ Missing skills for 'marketing' role:
-  - social-content (not found in any skill path)
-
-Options:
-  [s] Skip missing skills and continue
-  [a] Abort
-```
-
-The behavior is controlled by `missing_action` in the role config:
-- `prompt` — ask the user (falls back to `skip` in non-interactive mode)
-- `skip` — silently skip missing skills
-- `error` — fail if any skills are missing
-
-## Project-Level Config
-
-Place an `armory.yaml` in your project root to override global roles for that project:
-
-```yaml
-version: 1
-roles:
-  dev:
-    description: "Dev with project-specific skills"
-    skills:
-      - best-practices
-      - my-custom-project-skill
-    missing_action: skip
-```
-
-Project roles **fully replace** global roles with the same name. To extend a global role, copy it and add your skills.
-
-## Skill Format
-
-armory reads skills from directories containing a `SKILL.md` file with YAML frontmatter:
-
-```yaml
----
-name: copywriting
-description: Professional copywriting and content creation
----
-```
-
-The `name` and `description` fields are used for the scan table and interactive picker. Categories are inferred automatically from skill names — no `category` field needed.
+| Team | Skills | Registry |
+|------|--------|----------|
+| Dev | best-practices, performance, tdd, debugging, ... | — |
+| Marketing | copywriting, seo, content-strategy, email-sequence, ... | coreyhaines31/marketingskills |
+| QA | qa, browse, benchmark, web-quality-audit | — |
+| Design | frontend-design, accessibility, core-web-vitals, ... | — |
+| Security | codeql, semgrep, yara-rule-authoring, ... | — |
+| Planning | office-hours, plan-eng-review, brainstorming | — |
+| DevOps | land-and-deploy, setup-deploy, canary | — |
+| Frontend | gsap, react-best-practices, remotion, tailwind | — |
+| Backend | best-practices, performance, debugging, tdd | — |
+| Data | analytics-tracking, ab-test-setup | — |
 
 ## Configuration
 
+```yaml
+# ~/.armory/armory.yaml
+version: 2
+
+skill_paths:
+  - ~/.claude/skills
+  - ~/.agents/skills
+
+teams:
+  marketing:
+    description: "Content creation, SEO, and brand work"
+    skills:
+      - copywriting
+      - marketing-psychology
+      - seo
+      - content-strategy
+    missing_action: prompt
+```
+
 | Path | Purpose |
 |------|---------|
-| `~/.armory/armory.yaml` | Global config (roles, skill paths) |
+| `~/.armory/armory.yaml` | Global config (teams, skill paths) |
 | `./armory.yaml` | Project-level config (overrides global) |
 | `~/.armory/state.json` | Tracks equipped directories |
 | `~/.armory/cache/skills.json` | Cached skill index |
 
 ## Works With
 
-armory is a configuration tool — it sets up skill symlinks and gets out of the way. It works with:
-
 - **Claude Code** (native — skills load from `.claude/skills/`)
-- **Claude Squad** (equip before starting a squad session)
-- **Any terminal emulator** (Ghostty, iTerm2, Kitty, xterm, etc.)
-- **Any session manager** (tmux, zellij, screen, etc.)
+- **Claude Squad**, **Agent Deck**, **Conduit** (equip before starting)
+- **Any terminal emulator** (Ghostty, iTerm2, Kitty, xterm)
+- **skills.sh** (registry for discovering and installing skills)
 
 ## Building from Source
 

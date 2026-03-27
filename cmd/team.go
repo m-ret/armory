@@ -13,57 +13,57 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var roleCmd = &cobra.Command{
-	Use:   "role",
-	Short: "Manage skill roles",
-	Long:  "Create, edit, list, and inspect roles that group skills together.",
+var teamCmd = &cobra.Command{
+	Use:   "team",
+	Short: "Manage skill teams",
+	Long:  "Create, edit, list, and inspect teams that group skills together.",
 }
 
-var roleListCmd = &cobra.Command{
+var teamListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all configured roles",
-	RunE:  runRoleList,
+	Short: "List all configured teams",
+	RunE:  runTeamList,
 }
 
-var roleCreateCmd = &cobra.Command{
+var teamCreateCmd = &cobra.Command{
 	Use:   "create <name>",
-	Short: "Create a new role with interactive skill picker",
+	Short: "Create a new team with interactive skill picker",
 	Args:  cobra.ExactArgs(1),
-	RunE:  runRoleCreate,
+	RunE:  runTeamCreate,
 }
 
-var roleEditCmd = &cobra.Command{
+var teamEditCmd = &cobra.Command{
 	Use:   "edit <name>",
-	Short: "Edit an existing role's skills",
+	Short: "Edit an existing team's skills",
 	Args:  cobra.ExactArgs(1),
-	RunE:  runRoleEdit,
+	RunE:  runTeamEdit,
 }
 
-var roleShowCmd = &cobra.Command{
+var teamShowCmd = &cobra.Command{
 	Use:   "show <name>",
-	Short: "Show details of a role",
+	Short: "Show details of a team",
 	Args:  cobra.ExactArgs(1),
-	RunE:  runRoleShow,
+	RunE:  runTeamShow,
 }
 
 func init() {
-	roleCmd.AddCommand(roleListCmd)
-	roleCmd.AddCommand(roleCreateCmd)
-	roleCmd.AddCommand(roleEditCmd)
-	roleCmd.AddCommand(roleShowCmd)
-	rootCmd.AddCommand(roleCmd)
+	teamCmd.AddCommand(teamListCmd)
+	teamCmd.AddCommand(teamCreateCmd)
+	teamCmd.AddCommand(teamEditCmd)
+	teamCmd.AddCommand(teamShowCmd)
+	rootCmd.AddCommand(teamCmd)
 }
 
-// --- role list ------------------------------------------------------------
+// --- team list ------------------------------------------------------------
 
-func runRoleList(cmd *cobra.Command, args []string) error {
+func runTeamList(cmd *cobra.Command, args []string) error {
 	cfg, err := config.LoadConfig(".")
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	if len(cfg.Roles) == 0 {
-		fmt.Println("No roles configured. Use 'armory role create <name>' to create one.")
+	if len(cfg.Teams) == 0 {
+		fmt.Println("No teams configured. Use 'armory team create <name>' to create one.")
 		return nil
 	}
 
@@ -72,37 +72,37 @@ func runRoleList(cmd *cobra.Command, args []string) error {
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
 
 	// Compute column widths.
-	nameW := len("ROLE")
+	nameW := len("TEAM")
 	descW := len("DESCRIPTION")
-	for name, role := range cfg.Roles {
+	for name, team := range cfg.Teams {
 		if len(name) > nameW {
 			nameW = len(name)
 		}
-		if len(role.Description) > descW {
-			descW = len(role.Description)
+		if len(team.Description) > descW {
+			descW = len(team.Description)
 		}
 	}
 
 	pad := 3
 	fmtStr := fmt.Sprintf("%%-%ds%%-%ds%%s", nameW+pad, descW+pad)
 
-	header := fmt.Sprintf(fmtStr, "ROLE", "DESCRIPTION", "SKILLS")
+	header := fmt.Sprintf(fmtStr, "TEAM", "DESCRIPTION", "SKILLS")
 	fmt.Println(hdrStyle.Render(header))
 	fmt.Println(hdrStyle.Render(strings.Repeat("─", nameW+descW+8+2*pad)))
 
-	// Sort role names for stable output.
-	names := make([]string, 0, len(cfg.Roles))
-	for n := range cfg.Roles {
+	// Sort team names for stable output.
+	names := make([]string, 0, len(cfg.Teams))
+	for n := range cfg.Teams {
 		names = append(names, n)
 	}
 	sortStrings(names)
 
 	for _, name := range names {
-		role := cfg.Roles[name]
+		team := cfg.Teams[name]
 		line := fmt.Sprintf(fmtStr,
 			nameStyle.Render(name),
-			dimStyle.Render(role.Description),
-			dimStyle.Render(fmt.Sprintf("%d skills", len(role.Skills))),
+			dimStyle.Render(team.Description),
+			dimStyle.Render(fmt.Sprintf("%d skills", len(team.Skills))),
 		)
 		fmt.Println(line)
 	}
@@ -110,19 +110,19 @@ func runRoleList(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// --- role create ----------------------------------------------------------
+// --- team create ----------------------------------------------------------
 
-func runRoleCreate(cmd *cobra.Command, args []string) error {
-	roleName := args[0]
+func runTeamCreate(cmd *cobra.Command, args []string) error {
+	teamName := args[0]
 
 	cfg, err := config.LoadConfig(".")
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	// Check for existing role.
-	if _, exists := cfg.Roles[roleName]; exists {
-		fmt.Printf("Role %q already exists. Overwrite? [y/N] ", roleName)
+	// Check for existing team.
+	if _, exists := cfg.Teams[teamName]; exists {
+		fmt.Printf("Team %q already exists. Overwrite? [y/N] ", teamName)
 		reader := bufio.NewScanner(os.Stdin)
 		reader.Scan()
 		answer := strings.TrimSpace(strings.ToLower(reader.Text()))
@@ -147,7 +147,7 @@ func runRoleCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(result.Selected) == 0 {
-		fmt.Println("No skills selected. Role not created.")
+		fmt.Println("No skills selected. Team not created.")
 		return nil
 	}
 
@@ -157,38 +157,38 @@ func runRoleCreate(cmd *cobra.Command, args []string) error {
 	reader.Scan()
 	description := strings.TrimSpace(reader.Text())
 
-	role := config.Role{
+	team := config.Team{
 		Description:   description,
 		Skills:        result.Selected,
 		MissingAction: "prompt",
 	}
 
-	if cfg.Roles == nil {
-		cfg.Roles = make(map[string]config.Role)
+	if cfg.Teams == nil {
+		cfg.Teams = make(map[string]config.Team)
 	}
-	cfg.Roles[roleName] = role
+	cfg.Teams[teamName] = team
 
 	if err := saveToGlobalConfig(cfg); err != nil {
 		return err
 	}
 
-	fmt.Printf("Role %q created with %d skills.\n", roleName, len(result.Selected))
+	fmt.Printf("Team %q created with %d skills.\n", teamName, len(result.Selected))
 	return nil
 }
 
-// --- role edit ------------------------------------------------------------
+// --- team edit ------------------------------------------------------------
 
-func runRoleEdit(cmd *cobra.Command, args []string) error {
-	roleName := args[0]
+func runTeamEdit(cmd *cobra.Command, args []string) error {
+	teamName := args[0]
 
 	cfg, err := config.LoadConfig(".")
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	existing, err := cfg.GetRole(roleName)
+	existing, err := cfg.GetTeam(teamName)
 	if err != nil {
-		return fmt.Errorf("role %q not found", roleName)
+		return fmt.Errorf("team %q not found", teamName)
 	}
 
 	skills, err := scanAllSkills(cfg)
@@ -207,41 +207,41 @@ func runRoleEdit(cmd *cobra.Command, args []string) error {
 
 	updated := *existing
 	updated.Skills = result.Selected
-	cfg.Roles[roleName] = updated
+	cfg.Teams[teamName] = updated
 
 	if err := saveToGlobalConfig(cfg); err != nil {
 		return err
 	}
 
-	fmt.Printf("Role %q updated with %d skills.\n", roleName, len(result.Selected))
+	fmt.Printf("Team %q updated with %d skills.\n", teamName, len(result.Selected))
 	return nil
 }
 
-// --- role show ------------------------------------------------------------
+// --- team show ------------------------------------------------------------
 
-func runRoleShow(cmd *cobra.Command, args []string) error {
-	roleName := args[0]
+func runTeamShow(cmd *cobra.Command, args []string) error {
+	teamName := args[0]
 
 	cfg, err := config.LoadConfig(".")
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	role, err := cfg.GetRole(roleName)
+	team, err := cfg.GetTeam(teamName)
 	if err != nil {
-		return fmt.Errorf("role %q not found", roleName)
+		return fmt.Errorf("team %q not found", teamName)
 	}
 
 	hdrStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#e94560"))
 	nameStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ffffff"))
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
 
-	fmt.Println(hdrStyle.Render("Role: ") + nameStyle.Render(roleName))
-	fmt.Println(hdrStyle.Render("Description: ") + dimStyle.Render(role.Description))
-	fmt.Println(hdrStyle.Render("Missing action: ") + dimStyle.Render(role.MissingAction))
-	fmt.Println(hdrStyle.Render(fmt.Sprintf("Skills (%d):", len(role.Skills))))
+	fmt.Println(hdrStyle.Render("Team: ") + nameStyle.Render(teamName))
+	fmt.Println(hdrStyle.Render("Description: ") + dimStyle.Render(team.Description))
+	fmt.Println(hdrStyle.Render("Missing action: ") + dimStyle.Render(team.MissingAction))
+	fmt.Println(hdrStyle.Render(fmt.Sprintf("Skills (%d):", len(team.Skills))))
 
-	for _, s := range role.Skills {
+	for _, s := range team.Skills {
 		fmt.Println("  " + nameStyle.Render(s))
 	}
 

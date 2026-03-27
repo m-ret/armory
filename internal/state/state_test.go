@@ -12,7 +12,7 @@ import (
 func sampleEntry(dir string) EquippedEntry {
 	return EquippedEntry{
 		Dir:             dir,
-		Role:            "frontend",
+		Team:            "frontend",
 		Skills:          []string{"seo", "performance"},
 		ManagedSymlinks: []string{"seo", "performance"},
 		EquippedAt:      time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -38,7 +38,7 @@ func TestLoadStateFrom_ValidJSON(t *testing.T) {
   "equipped": [
     {
       "dir": "/tmp/project",
-      "role": "backend",
+      "team": "backend",
       "skills": ["seo"],
       "managed_symlinks": ["seo"],
       "equipped_at": "2026-01-01T00:00:00Z"
@@ -53,7 +53,7 @@ func TestLoadStateFrom_ValidJSON(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, s.Equipped, 1)
 	assert.Equal(t, "/tmp/project", s.Equipped[0].Dir)
-	assert.Equal(t, "backend", s.Equipped[0].Role)
+	assert.Equal(t, "backend", s.Equipped[0].Team)
 	assert.Equal(t, []string{"seo"}, s.Equipped[0].Skills)
 }
 
@@ -100,16 +100,16 @@ func TestAddEquipped_NewEntry(t *testing.T) {
 func TestAddEquipped_UpdateExisting(t *testing.T) {
 	s := &State{}
 	entry1 := sampleEntry("/home/user/project")
-	entry1.Role = "frontend"
+	entry1.Team = "frontend"
 	s.AddEquipped(entry1)
 
 	entry2 := sampleEntry("/home/user/project")
-	entry2.Role = "backend"
+	entry2.Team = "backend"
 	entry2.Skills = []string{"api-design"}
 	s.AddEquipped(entry2)
 
 	assert.Len(t, s.Equipped, 1)
-	assert.Equal(t, "backend", s.Equipped[0].Role)
+	assert.Equal(t, "backend", s.Equipped[0].Team)
 	assert.Equal(t, []string{"api-design"}, s.Equipped[0].Skills)
 }
 

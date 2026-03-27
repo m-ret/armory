@@ -23,7 +23,7 @@ const (
 
 type EquippedEntry struct {
 	Dir             string    `json:"dir"`
-	Role            string    `json:"role"`
+	Team            string    `json:"team"`
 	Skills          []string  `json:"skills"`
 	ManagedSymlinks []string  `json:"managed_symlinks"`
 	EquippedAt      time.Time `json:"equipped_at"`

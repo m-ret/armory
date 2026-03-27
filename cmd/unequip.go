@@ -51,7 +51,7 @@ func runUnequip(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	roleName := entry.Role
+	teamName := entry.Team
 	skillsDir := filepath.Join(targetDir, ".claude", "skills")
 
 	// Remove each managed symlink.
@@ -75,7 +75,7 @@ func runUnequip(cmd *cobra.Command, args []string) error {
 	}
 
 	summaryStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#e94560"))
-	fmt.Println(summaryStyle.Render(fmt.Sprintf("Unequipped '%s' role: %d symlinks removed", roleName, removed)))
+	fmt.Println(summaryStyle.Render(fmt.Sprintf("Unequipped '%s' team: %d symlinks removed", teamName, removed)))
 
 	return nil
 }

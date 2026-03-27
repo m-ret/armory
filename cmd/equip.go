@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/m-ret/armory/internal/config"
+	"github.com/m-ret/armory/internal/registry"
 	"github.com/m-ret/armory/internal/scanner"
 	"github.com/m-ret/armory/internal/state"
 	"github.com/spf13/cobra"
@@ -19,9 +21,9 @@ var equipDir string
 var equipMerge bool
 
 var equipCmd = &cobra.Command{
-	Use:   "equip <role>",
-	Short: "Symlink role skills into a target directory",
-	Long: `Equip a directory with the skills defined in a role.
+	Use:   "equip <team>",
+	Short: "Symlink team skills into a target directory",
+	Long: `Equip a directory with the skills defined in a team.
 
 By default, existing armory-managed symlinks are replaced. Use --merge to
 keep existing symlinks and only add missing ones.`,
@@ -36,15 +38,15 @@ func init() {
 }
 
 func runEquip(cmd *cobra.Command, args []string) error {
-	roleName := args[0]
+	teamName := args[0]
 
-	// Load config and resolve role.
+	// Load config and resolve team.
 	cfg, err := config.LoadConfig(".")
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	role, err := cfg.GetRole(roleName)
+	team, err := cfg.GetTeam(teamName)
 	if err != nil {
 		return err
 	}
@@ -110,10 +112,10 @@ func runEquip(cmd *cobra.Command, args []string) error {
 		skillMap[s.Name] = s
 	}
 
-	// Match role skills against scanned skills.
+	// Match team skills against scanned skills.
 	var found []scanner.Skill
 	var missing []string
-	for _, name := range role.Skills {
+	for _, name := range team.Skills {
 		if s, ok := skillMap[name]; ok {
 			found = append(found, s)
 		} else {
@@ -121,9 +123,73 @@ func runEquip(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// --- Registry search + install for missing skills ---
+	if len(missing) > 0 {
+		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
+
+		fmt.Println(dimStyle.Render("Searching locally..."))
+		fmt.Println(dimStyle.Render(fmt.Sprintf("  Found: %s (%d/%d)",
+			strings.Join(foundNames(found), ", "), len(found), len(team.Skills))))
+
+		fmt.Println(dimStyle.Render("Searching skills.sh..."))
+		regFound, regNotFound := registry.SearchByNames(missing)
+
+		if len(regFound) > 0 {
+			names := make([]string, len(regFound))
+			for i, r := range regFound {
+				names[i] = r.Name
+			}
+			fmt.Println(dimStyle.Render(fmt.Sprintf("  Found: %s (%d more)",
+				strings.Join(names, ", "), len(regFound))))
+		}
+		if len(regNotFound) > 0 {
+			fmt.Println(dimStyle.Render(fmt.Sprintf("  Not found: %s",
+				strings.Join(regNotFound, ", "))))
+		}
+
+		// Offer to install if terminal is interactive.
+		if len(regFound) > 0 && isTerminal() {
+			fmt.Printf("\nInstall %d skills from skills.sh? [Y/n] ", len(regFound))
+			reader := bufio.NewReader(os.Stdin)
+			answer, _ := reader.ReadString('\n')
+			answer = strings.TrimSpace(strings.ToLower(answer))
+
+			if answer == "" || answer == "y" || answer == "yes" {
+				fmt.Println(dimStyle.Render(fmt.Sprintf("Installing %d skills...", len(regFound))))
+				ctx := context.Background()
+				results, installErr := registry.InstallSkills(ctx, regFound, func(msg string) {
+					fmt.Println(dimStyle.Render("  " + msg))
+				})
+				if installErr != nil {
+					warnInstall := lipgloss.NewStyle().Foreground(lipgloss.Color("#f39c12"))
+					fmt.Println(warnInstall.Render("  Install error: " + installErr.Error()))
+				}
+				// Add successfully installed skills to found list.
+				for _, r := range results {
+					if r.Err == nil {
+						found = append(found, scanner.Skill{
+							Name: r.Name, Dir: r.Dir, Source: r.Dir,
+						})
+					}
+				}
+				// Recalculate missing.
+				foundSet := make(map[string]bool)
+				for _, s := range found {
+					foundSet[s.Name] = true
+				}
+				missing = nil
+				for _, name := range team.Skills {
+					if !foundSet[name] {
+						missing = append(missing, name)
+					}
+				}
+			}
+		}
+	}
+
 	// Handle missing skills.
 	if len(missing) > 0 {
-		action := role.MissingAction
+		action := team.MissingAction
 		if action == "" {
 			action = "skip"
 		}
@@ -160,11 +226,11 @@ func runEquip(cmd *cobra.Command, args []string) error {
 	}
 
 	existing := st.FindByDir(targetDir)
-	var oldRole string
+	var oldTeam string
 
 	// If NOT --merge: remove previously managed symlinks.
 	if !equipMerge && existing != nil {
-		oldRole = existing.Role
+		oldTeam = existing.Team
 		for _, name := range existing.ManagedSymlinks {
 			link := filepath.Join(skillsTarget, name)
 			_ = os.Remove(link)
@@ -251,8 +317,8 @@ func runEquip(cmd *cobra.Command, args []string) error {
 	// Update state.
 	entry := state.EquippedEntry{
 		Dir:             targetDir,
-		Role:            roleName,
-		Skills:          role.Skills,
+		Team:            teamName,
+		Skills:          team.Skills,
 		ManagedSymlinks: managedSymlinks,
 		EquippedAt:      time.Now(),
 	}
@@ -262,13 +328,13 @@ func runEquip(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("saving state: %w", err)
 	}
 
-	// Role replacement warning.
-	if oldRole != "" && oldRole != roleName {
-		fmt.Println(warnStyle.Render(fmt.Sprintf("Replacing '%s' role with '%s'", oldRole, roleName)))
+	// Team replacement warning.
+	if oldTeam != "" && oldTeam != teamName {
+		fmt.Println(warnStyle.Render(fmt.Sprintf("Replacing '%s' team with '%s'", oldTeam, teamName)))
 	}
 
 	// Final summary.
-	fmt.Println(summaryStyle.Render(fmt.Sprintf("\nEquipped '%s' role: %d skills loaded", roleName, len(linkedSkills))))
+	fmt.Println(summaryStyle.Render(fmt.Sprintf("\nEquipped '%s' team: %d skills loaded", teamName, len(linkedSkills))))
 
 	return nil
 }
@@ -280,4 +346,13 @@ func isTerminal() bool {
 		return false
 	}
 	return fi.Mode()&os.ModeCharDevice != 0
+}
+
+// foundNames extracts skill names from a slice of found skills.
+func foundNames(skills []scanner.Skill) []string {
+	names := make([]string, len(skills))
+	for i, s := range skills {
+		names[i] = s.Name
+	}
+	return names
 }
