@@ -1,0 +1,8 @@
+# Binary
+armory
+
+# Local state
+.gstack/
+
+# OS
+.DS_Store
